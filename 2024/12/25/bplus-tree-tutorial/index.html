@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>bplus-tree-tutorial | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="此文主要用于讲解b+树在无并发场景下的工作逻辑，包括insert, delete. 1. Bplus Tree Structureb+树的数据结构如下图所示 图中是一个比较简单的b+树示意图，它并不完整，但展现了其数据结构的基本特点 1.图中非叶子节点只会记录key和子节点的指针，而叶子节点会记录key以及实际的value或者指向value的指针。 2.为了便于操作，除了叶子节点会通过前后指针链接">
+<meta property="og:type" content="article">
+<meta property="og:title" content="bplus-tree-tutorial">
+<meta property="og:url" content="http://tengma-a.github.io/2024/12/25/bplus-tree-tutorial/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="此文主要用于讲解b+树在无并发场景下的工作逻辑，包括insert, delete. 1. Bplus Tree Structureb+树的数据结构如下图所示 图中是一个比较简单的b+树示意图，它并不完整，但展现了其数据结构的基本特点 1.图中非叶子节点只会记录key和子节点的指针，而叶子节点会记录key以及实际的value或者指向value的指针。 2.为了便于操作，除了叶子节点会通过前后指针链接">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-insert-1.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-insert-2.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-insert-3.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-insert-4.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-delete-1.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-delete-2.png">
+<meta property="og:image" content="http://tengma-a.github.io/images/bplustree-delete-3.png">
+<meta property="article:published_time" content="2024-12-25T14:51:16.000Z">
+<meta property="article:modified_time" content="2024-12-29T14:24:47.977Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://tengma-a.github.io/images/bplustree.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://TengMa-A.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-bplus-tree-tutorial" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2024/12/25/bplus-tree-tutorial/" class="article-date">
+  <time class="dt-published" datetime="2024-12-25T14:51:16.000Z" itemprop="datePublished">2024-12-25</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      bplus-tree-tutorial
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>此文主要用于讲解b+树在无并发场景下的工作逻辑，包括insert, delete.</p>
+<h1 id="1-Bplus-Tree-Structure"><a href="#1-Bplus-Tree-Structure" class="headerlink" title="1. Bplus Tree Structure"></a>1. Bplus Tree Structure</h1><p>b+树的数据结构如下图所示<img src="/../images/bplustree.png" alt="b+树数据结构"></p>
+<p>图中是一个比较简单的b+树示意图，它并不完整，但展现了其数据结构的基本特点</p>
+<p>1.图中非叶子节点只会记录key和子节点的指针，而叶子节点会记录key以及实际的value或者指向value的指针。</p>
+<p>2.为了便于操作，除了叶子节点会通过前后指针链接，非叶子节点也会记录前后的指针信息，便于分裂和合并</p>
+<p>3.每个节点会有一个最大存储key数量M（比如为5）作为上限，当节点内的key的数量超过M时会触发分裂，当小于M&#x2F;2 时将触发合并</p>
+<p>以上三条原则是b+树比较重要的性质，这里不再赘述其拥有的优点和在数据库中的使用场景，在了解这些性质后，我们尝试通过伪代码的形式，实现满足这些性质的插入，删除，更新，查询功能。</p>
+<span id="more"></span>
+
+<h1 id="2-Bplus-Tree-Working-Principle"><a href="#2-Bplus-Tree-Working-Principle" class="headerlink" title="2. Bplus Tree Working Principle"></a>2. Bplus Tree Working Principle</h1><p>在阐述b+树的工作逻辑前，我们需要先定义数据结构的基本框架，比如B+树整体作为对象拥有什么性质，叶子&#x2F;非叶子节点应该包括哪些属性。</p>
+<p>我们定义b+tree整体应该具有以下性质</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;vector&gt;</span><br><span class="line">#include &lt;iostream&gt;</span><br><span class="line"></span><br><span class="line">// 定义B+树节点的最大孩子数和最小孩子数</span><br><span class="line">const int MAX_DEGREE = 4; // 最大孩子数</span><br><span class="line">const int MIN_DEGREE = 3; // 最小孩子数</span><br><span class="line"></span><br><span class="line">// B+树节点定义</span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">struct BTreeNode &#123;</span><br><span class="line">    bool isLeaf; // 是否是叶子节点</span><br><span class="line">    int numKeys; // 节点中键值的数量</span><br><span class="line">    BTreeNode&lt;KeyType, ValueType&gt;* parent; // 指向父节点，便于遍历分裂</span><br><span class="line">    BTreeNode&lt;KeyType, ValueType&gt;* left; // 指向左邻节点</span><br><span class="line">    BTreeNode&lt;KeyType, ValueType&gt;* right; // 指向右邻节点</span><br><span class="line">    std::vector&lt;KeyType&gt; key; // 键值数组</span><br><span class="line">    std::vector&lt;ValueType&gt; values; // 对应的value</span><br><span class="line">    std::vector&lt;BTreeNode&lt;KeyType, ValueType&gt;*&gt; children; // 子节点数组</span><br><span class="line"></span><br><span class="line">    // 构造函数</span><br><span class="line">    BTreeNode(bool leaf, int maxKeys) : isLeaf(leaf), numKeys(0) &#123;</span><br><span class="line">        key.resize(maxKeys);</span><br><span class="line">        if (!isLeaf) &#123;</span><br><span class="line">            children.resize(maxKeys + 1);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            vlaues.resize(maxKeys);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // 插入键值对</span><br><span class="line">    void insertLeafNode(KeyType key, ValueType value);</span><br><span class="line">    void insertNonLeaftNode(KeyType key, BTreeNode&lt;KeyType, ValueType&gt;* node);</span><br><span class="line">    // 寻找键值</span><br><span class="line">    int search(KeyType key);</span><br><span class="line">    // 其他必要的函数...</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">// B+树定义</span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">class BPlusTree &#123;</span><br><span class="line">private:</span><br><span class="line">    BTreeNode&lt;KeyType, ValueType&gt;* root; // 根节点</span><br><span class="line">    int maxKeys; // 最大键值数量</span><br><span class="line">    int level; // 树的层数</span><br><span class="line">    std::vector&lt;BTreeNode&lt;KeyType, ValueType&gt;*&gt; freeNode; // 空节点，用于回收被删除的节点，避免临时分配内存</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">public:</span><br><span class="line">    // 构造函数</span><br><span class="line">    BPlusTree(int maxKeys) : root(nullptr), maxKeys(maxKeys), root(nullptr), level(0) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    // 插入键值对</span><br><span class="line">    void insert(KeyType key, ValueType value);</span><br><span class="line">    // 搜索键值</span><br><span class="line">    ValueType search(KeyType key);</span><br><span class="line">    // 删除键值</span><br><span class="line">    void remove(KeyType key);</span><br><span class="line">    // 其他必要的函数...</span><br><span class="line">    // 分割节点</span><br><span class="line">    void split(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                BTreeNode&lt;KeyType, ValueType&gt;* siblingNode, KeyType splitKey);</span><br><span class="line"></span><br><span class="line">    void splitParent(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                    BTreeNode&lt;KeyType, ValueType&gt;* siblingNode, KeyType splitKey);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">// 以下是B+树节点的一些成员函数的实现示例</span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BTreeNode&lt;KeyType, ValueType&gt;::insertLeafNode(KeyType key, ValueType value) &#123;</span><br><span class="line">    // 插入逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BTreeNode&lt;KeyType, ValueType&gt;::insertNonLeaftNode(KeyType key, BTreeNode&lt;KeyType, ValueType&gt;* node) &#123;</span><br><span class="line">    // 插入逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">int BTreeNode&lt;KeyType, ValueType&gt;::search(KeyType key) &#123;</span><br><span class="line">    // 搜索逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// B+树的一些成员函数的实现示例</span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::insert(KeyType key, ValueType value) &#123;</span><br><span class="line">    // 插入逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">ValueType BPlusTree&lt;KeyType, ValueType&gt;::search(KeyType key) &#123;</span><br><span class="line">    // 搜索逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::remove(KeyType key) &#123;</span><br><span class="line">    // 删除逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::split(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                    BTreeNode&lt;KeyType, ValueType&gt;* siblingNode, KeyType splitKey) &#123;</span><br><span class="line">    // 分割逻辑...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::splitParent(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                    BTreeNode&lt;KeyType, ValueType&gt;* siblingNode, KeyType splitKey) &#123;</span><br><span class="line">    // 分割逻辑...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上伪代码定义了b+树应该拥有的基本属性。下面，我们将根据这些基本属性，实现该数据结构的Insert逻辑</p>
+<h2 id="2-1-Insert-Logic"><a href="#2-1-Insert-Logic" class="headerlink" title="2.1 Insert Logic"></a>2.1 Insert Logic</h2><p>在实现伪代码之前，我们先阐述一下插入逻辑的基本实现原理:</p>
+<ol>
+<li>所有的动作都需要从root节点开始。利用b+树存储有序的性质，我们利用二分查找法，从上往下，找到需要插入的key应该处于的位置（一定位于叶子节点）</li>
+<li>如果叶子节点未满（即键值数量小于最大孩子数），则在叶子节点中找到正确的位置插入新键值。如果叶子节点已满（即键值数量等于最大孩子数），则需要进行节点分裂。</li>
+<li>当叶子节点已满时，将其分裂为两个节点。通常，分裂操作会将节点的键值一分为二，一半保留在原节点，另一半移动到新创建的兄弟节点。分裂后，中间的键值（通常是原节点键值的中位数）会被提升到父节点中，作为两个子节点的分隔键。</li>
+<li>由于查询到的叶子节点分裂，会导致父节点多出一个节点，那么同样需要考虑父节点的分裂。在每个分裂步骤中，一旦完成了节点的分裂和父节点的更新，就递归地返回到上一个调用层级，直到所有因插入操作而变得过满的节点都被处理。</li>
+<li>如果进行了根节点的分裂，那么树的高度会增加1</li>
+</ol>
+<p>根据上述几条实现原理，我们通过伪代码尝试实现一下插入逻辑</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::insert(KeyType key, ValueType value) &#123;</span><br><span class="line">    // 如果root为空，直接构造root节点</span><br><span class="line">    if （!root) &#123;</span><br><span class="line">        root = new BTreeNode(true, maxKeys);</span><br><span class="line">        level += 1；</span><br><span class="line">        root.insertNode(key, value);</span><br><span class="line">        return;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        // 如果 root 不为空，寻找key对应的叶子节点</span><br><span class="line">        tempNode = root;</span><br><span class="line">        while (!tempNode.isLeaf) &#123;</span><br><span class="line">            auto index = tempNode.search(key);</span><br><span class="line">            tempNode = tempNode.children[index];</span><br><span class="line">        &#125;</span><br><span class="line">        // 找到了对应的叶子节点，执行插入。</span><br><span class="line">        </span><br><span class="line">        if (tempNode.numKeys &lt;= MAX_DEGREE) &#123;</span><br><span class="line">            // 如果叶子节点没有满，直接放入即可</span><br><span class="line">            tempNode.insertLeafNode(key, value);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            // 如果叶子节点满了，触发分裂逻辑</span><br><span class="line">            auto splitKey = key_binary_search(node);</span><br><span class="line">            auto siblingNode = new BTreeNode(true, maxKeys);</span><br><span class="line"></span><br><span class="line">            // 将node一半的数据复制到新创建的siblingNode, 并更新sibling的邻居节点，然后进入分裂逻辑</span><br><span class="line"></span><br><span class="line">            if (key &lt; splitKey) &#123;</span><br><span class="line">                node.insertLeafNode(key, value);</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                siblingNode.insertLeafNode(key, vlaue);</span><br><span class="line">            &#125;</span><br><span class="line">            split(tempNode, siblingNode, splitKey);</span><br><span class="line">        &#125;</span><br><span class="line">       </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::split(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                                    BTreeNode&lt;KeyType, ValueType&gt;* siblingNode, KeyType splitKey) &#123;</span><br><span class="line">    // 根据节点是root/非叶子节点采用不同的分裂逻辑</span><br><span class="line">    if (node.parent == nullptr) &#123;</span><br><span class="line">        // 代表node是root节点</span><br><span class="line">        auto rootNode = new BTreeNode(true, maxKeys);</span><br><span class="line">        // 更新rootNode的信息</span><br><span class="line">        root = rootNode;</span><br><span class="line">        return;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        auto right =  node.right;</span><br><span class="line">        auto parent = node.parent;</span><br><span class="line">        siblingNode.right = right;</span><br><span class="line">        right.left = siblingNode;</span><br><span class="line">        siblingNode.left = node;</span><br><span class="line">        node.right = siblingNode;</span><br><span class="line">        siblingNode.parent = parent;</span><br><span class="line">        // 递归更新node的父节点</span><br><span class="line">        if （parent.numKeys &lt;= MAX_DEGREE) &#123;</span><br><span class="line">            // 没有超过限制，不用递归</span><br><span class="line">            // insertNode表示siblingNode是大于splitKey的节点</span><br><span class="line">            parent.insertNonLeafNode(splitKey, siblingNode);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            splitParent(parent, node, siblingNode, splitKey, key);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::splitParent(BTreeNode&lt;KeyType, ValueType&gt;* node, </span><br><span class="line">                                                BTreeNode&lt;KeyType, ValueType&gt;* left, </span><br><span class="line">                                                BTreeNode&lt;KeyType, ValueType&gt;* right, KeyType splitKey, KeyType key) &#123;</span><br><span class="line">    // 根据节点是root/非叶子节点采用不同的分裂逻辑</span><br><span class="line">    if (node.parent == nullptr) &#123;</span><br><span class="line">        // 代表node是root节点</span><br><span class="line">        auto rootNode = new BTreeNode(true, maxKeys);</span><br><span class="line">        // 更新rootNode的信息</span><br><span class="line">        root = rootNode;</span><br><span class="line">        return;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        auto splitKey = key_binary_search(node);</span><br><span class="line">        auto siblingParentNode = new BTreeNode(false, maxKeys);</span><br><span class="line"></span><br><span class="line">        // 将node一半的数据复制到新创建的siblingParentNode, 并更新sibling的邻居节点, 以及下属children的关系，然后进入分裂逻辑</span><br><span class="line">        // splitParent与split函数的不同之处在于，作为非叶子节点，他需要变更parent下属的子节点，即children和parent两者的互相映射关系。</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>上述伪代码大概阐述了insert时的分裂逻辑，具体插入步骤如下所示</p>
+<p><img src="/../images/bplustree-insert-1.png" alt="b+树-insert-1"></p>
+<p><img src="/../images/bplustree-insert-2.png" alt="b+树-insert-2"></p>
+<p><img src="/../images/bplustree-insert-3.png" alt="b+树-insert-3"></p>
+<p><img src="/../images/bplustree-insert-4.png" alt="b+树-insert-4"></p>
+<h2 id="2-1-Delete-Logic"><a href="#2-1-Delete-Logic" class="headerlink" title="2.1 Delete Logic"></a>2.1 Delete Logic</h2><p>删除逻辑的基本实现原理:  </p>
+<ol>
+<li>所有的动作都需要从root节点开始。利用b+树存储有序的性质，我们利用二分查找法，从上往下，找到需要删除的key应该处于的位置（一定位于叶子节点）</li>
+<li>如果叶子节点需要删除的键值是节点中最大的或最小的键值，可以尝试与兄弟节点合并或借位。如果兄弟节点有多余的键值（即键值数量大于最小孩子数），则可以从兄弟节点借一个键值过来，然后删除原节点中的键值。如果兄弟节点没有多余的键值，则可能需要将两个兄弟节点合并。</li>
+<li>在叶子节点删除键值后，如果需要与兄弟节点合并或借位，可能会影响到父节点中的键值。如果合并了节点，需要将合并节点的某个键值（通常是最大或最小的）上移至父节点，并删除原节点中的对应键值。如果借位了键值，也需要更新父节点中的键值。</li>
+<li>如果删除操作导致父节点的键值数量低于最小孩子数，可能需要递归地向上进行调整，直到找到一个键值数量足够的节点或到达根节点。如果根节点的键值数量低于最小孩子数，可以将根节点与它的一个子节点合并或者将子节点提升为新的根节点。</li>
+<li>在删除过程中，需要确保B+树的顺序性不被破坏，即叶子节点中的键值必须保持有序。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::delete(KeyType key) &#123;</span><br><span class="line">    // 如果root为空，直接返回</span><br><span class="line">    if （!root) &#123;</span><br><span class="line">        return;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        // 如果 root 不为空，寻找key对应的叶子节点</span><br><span class="line">        tempNode = root;</span><br><span class="line">        while (!tempNode.isLeaf) &#123;</span><br><span class="line">            auto index = tempNode.search(key);</span><br><span class="line">            tempNode = tempNode.children[index];</span><br><span class="line">        &#125;</span><br><span class="line">        // 找到了对应的叶子节点，执行删除。</span><br><span class="line">        if (tempNode.numKeys &gt; MIN_DEGREE) &#123;</span><br><span class="line">            // 如果叶子节点的key数量比最小孩子数量大，直接删除即可</span><br><span class="line">            tempNode.deleteLeafNode(key);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            // 如果叶子节点key数量比最小孩子数量小，触发合并/借用逻辑</span><br><span class="line">            left = tempNode.left;</span><br><span class="line">            right = tempNode.right;</span><br><span class="line">            parent = tempNode.parent;</span><br><span class="line">            </span><br><span class="line">            // 先在parent里面搜索需要删除的key位于什么位置</span><br><span class="line">            auto i = parent_key_index(parent, key);</span><br><span class="line">            // 1.如果tempNode只有left节点与它是同一个parent,则判断left的容量</span><br><span class="line">            if (left.numKeys &gt; MIN_DEGREE) &#123;</span><br><span class="line">                // 借用sibling的key后需要同时更新父节点的映射关系</span><br><span class="line">                leaf_shift_from_left</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                leaf_merge_into_left</span><br><span class="line">                // 递归向上更新父节点与子节点的映射关系</span><br><span class="line">                non_leaf_remove</span><br><span class="line">            &#125;</span><br><span class="line">            // 2.如果tempNode只有right节点与它是同一个parent,则判断right的容量</span><br><span class="line">            if (right.numKeys &gt; MIN_DEGREE) &#123;</span><br><span class="line">                leaf_shift_from_right</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                leaf_merge_into_tight</span><br><span class="line">                non_leaf_remove</span><br><span class="line">            &#125;</span><br><span class="line">            // 3.如果tempNode的left和right均是同一个parent, 则判断left和right谁的数量更多</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">template &lt;typename KeyType, typename ValueType&gt;</span><br><span class="line">void BPlusTree&lt;KeyType, ValueType&gt;::non_leaf_remove(KeyType key, BTreeNode&lt;KeyType, ValueType&gt;* node) &#123;</span><br><span class="line">    if (node.parent == nullptr) &#123;</span><br><span class="line">        // node是root节点，直接更新，或者将第一个子节点提为根节点</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        // 执行和delete类似的逻辑，但非叶子节点需要考虑parent和children之间的映射关系，如果涉及借用或者合并，chilren的指向也需要同时进行更新。然后递归调用</span><br><span class="line">        non_leaf_remove</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上述伪代码大概阐述了Delete时的分裂逻辑，具体删除步骤如下所示</p>
+<p><img src="/../images/bplustree-delete-1.png" alt="b+树-delete-1"></p>
+<p><img src="/../images/bplustree-delete-2.png" alt="b+树-delete-2"></p>
+<p><img src="/../images/bplustree-delete-3.png" alt="b+树-delete-3"></p>
+<h1 id="3-总结"><a href="#3-总结" class="headerlink" title="3. 总结"></a>3. 总结</h1><p>本文简单介绍了b+树的insert和delete大致的工作逻辑，其余的update&#x2F;point query&#x2F;range query可以按照类似的逻辑进行实现，因为不涉及结构的变化，因此一般采用二分法和遍历即可完成。但这个实现方式仅限于单线程&#x2F;无并发场景下，才可以保证正确性，并未讨论读写并发时，该如何做，也没有考虑到索引的持久化，是一个简单的入门架构。后续，我们将继续探讨在并发场景下，如何提高b+tree的读写效率和保证其正确性。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://tengma-a.github.io/2024/12/25/bplus-tree-tutorial/" data-id="cm59pddy80000o4kv6u1y4vry" data-title="bplus-tree-tutorial" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2024/07/24/%E6%8E%A2%E7%B4%A2garnet%E7%9A%84epoch%E4%BF%9D%E6%8A%A4%E6%9C%BA%E5%88%B6/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">探索garnet的epoch同步机制</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/12/">December 2024</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/07/">July 2024</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/06/">June 2024</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2024/12/25/bplus-tree-tutorial/">bplus-tree-tutorial</a>
+          </li>
+        
+          <li>
+            <a href="/2024/07/24/%E6%8E%A2%E7%B4%A2garnet%E7%9A%84epoch%E4%BF%9D%E6%8A%A4%E6%9C%BA%E5%88%B6/">探索garnet的epoch同步机制</a>
+          </li>
+        
+          <li>
+            <a href="/2024/06/24/%E6%8E%A2%E7%B4%A2Garnet%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E7%9A%84Upsert%E6%93%8D%E4%BD%9C/">探索Garnet数据库中的Upsert操作</a>
+          </li>
+        
+          <li>
+            <a href="/2024/06/15/%E6%8E%A2%E8%AE%A8Garnet%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%9A%E5%93%88%E5%B8%8C%E7%B4%A2%E5%BC%95%E7%9A%84%E5%88%86%E8%A3%82%E4%B8%8E%E7%AE%A1/">探讨Garnet数据库：哈希索引的分裂与管理</a>
+          </li>
+        
+          <li>
+            <a href="/2024/06/15/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2024 John Doe<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
